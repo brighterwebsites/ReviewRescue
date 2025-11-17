@@ -1,0 +1,61 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique // For subdomain or path (e.g., "johns-cafe")
+  email         String   // Owner email to receive feedback
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Review platforms with weighting
+  platforms     ReviewPlatform[]
+  feedbacks     Feedback[]
+
+  // Tracking for round-robin distribution
+  lastPlatformIndex Int @default(0)
+}
+
+model ReviewPlatform {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  name        String   // e.g., "Google", "Trust Pilot", "Other"
+  url         String   // The review URL
+  weight      Int      @default(100) // Percentage weight (0-100)
+  order       Int      @default(0)   // Display order
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId])
+}
+
+model Feedback {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Customer information
+  name        String
+  email       String
+  message     String   @db.Text
+  rating      String   // "neutral" or "sad"
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  read        Boolean  @default(false)
+
+  @@index([businessId])
+  @@index([createdAt])
+}

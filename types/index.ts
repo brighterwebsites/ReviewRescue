@@ -25,8 +25,11 @@ export interface Feedback {
   businessId: string;
   name: string;
   email: string;
+  phone?: string;
   message: string;
   rating: 'neutral' | 'sad';
+  stars: number;
+  wantsContact: boolean;
   createdAt: Date;
   read: boolean;
 }

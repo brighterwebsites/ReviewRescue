@@ -1,4 +1,5 @@
 import { Feedback } from '@/types';
+import nodemailer from 'nodemailer';
 
 /**
  * Sends a feedback notification email to the business owner
@@ -8,42 +9,78 @@ export async function sendFeedbackNotification(
   businessName: string,
   feedback: Feedback
 ): Promise<void> {
-  // TODO: Implement with nodemailer when SMTP is configured
-  console.log('Sending feedback notification:', {
-    to: businessEmail,
-    subject: `New ${feedback.rating} feedback for ${businessName}`,
-    feedback,
-  });
+  // Check if SMTP is configured
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    console.log('SMTP not configured, skipping email notification');
+    console.log('Feedback received:', {
+      to: businessEmail,
+      subject: `New ${feedback.rating} feedback for ${businessName}`,
+      feedback,
+    });
+    return;
+  }
 
-  // Uncomment when ready to use:
-  /*
-  const nodemailer = require('nodemailer');
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false, // Use TLS
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
-    },
-  });
+    const starRating = '⭐'.repeat(feedback.stars);
+    const contactRequest = feedback.wantsContact
+      ? '<p style="background-color: #fef3c7; padding: 10px; border-left: 4px solid #f59e0b;"><strong>⚠️ Customer wants to be contacted about this feedback</strong></p>'
+      : '';
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to: businessEmail,
-    subject: `New ${feedback.rating} feedback for ${businessName}`,
-    html: `
-      <h2>New Feedback Received</h2>
-      <p><strong>From:</strong> ${feedback.name} (${feedback.email})</p>
-      <p><strong>Rating:</strong> ${feedback.rating}</p>
-      <p><strong>Message:</strong></p>
-      <p>${feedback.message}</p>
-      <hr>
-      <p><small>Sent by ReviewRescue</small></p>
-    `,
-  });
-  */
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: businessEmail,
+      subject: `New ${feedback.rating} feedback (${feedback.stars}⭐) for ${businessName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+        </head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">New Feedback Received</h2>
+
+          ${contactRequest}
+
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Star Rating:</strong> ${starRating} (${feedback.stars}/5)</p>
+            <p><strong>Sentiment:</strong> ${feedback.rating === 'sad' ? '😞 Unhappy' : '😐 Neutral'}</p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb;">
+            <p><strong>Name:</strong> ${feedback.name}</p>
+            <p><strong>Email:</strong> <a href="mailto:${feedback.email}">${feedback.email}</a></p>
+            ${feedback.phone ? `<p><strong>Phone:</strong> <a href="tel:${feedback.phone}">${feedback.phone}</a></p>` : ''}
+            <hr style="border: none; border-top: 1px solid #e5e7eb;">
+            <p><strong>Message:</strong></p>
+            <p style="white-space: pre-wrap;">${feedback.message}</p>
+          </div>
+
+          <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+            Received on ${new Date(feedback.createdAt).toLocaleString()}
+          </p>
+
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+            Sent by ReviewRescue
+          </p>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log(`Feedback notification sent to ${businessEmail}`);
+  } catch (error) {
+    console.error('Error sending email notification:', error);
+    throw error;
+  }
 }
 
 /**

@@ -49,8 +49,11 @@ model Feedback {
   // Customer information
   name        String
   email       String
+  phone       String?  // Optional phone number
   message     String   @db.Text
   rating      String   // "neutral" or "sad"
+  stars       Int      // 1-5 star rating
+  wantsContact Boolean @default(false) // Whether customer wants to be contacted
 
   // Metadata
   createdAt   DateTime @default(now())

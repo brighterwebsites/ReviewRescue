@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Business } from '@/types';
 import { calculateRemainingWeight } from '@/lib/review-distribution';
 import Link from 'next/link';
-import { generateReviewEmailTemplate } from '@/lib/email';
 
 interface BusinessSettingsProps {
   business: Business;
@@ -17,6 +17,13 @@ interface PlatformFormData {
 }
 
 export default function BusinessSettings({ business }: BusinessSettingsProps) {
+  const router = useRouter();
+
+  const [businessInfo, setBusinessInfo] = useState({
+    name: business.name,
+    email: business.email,
+  });
+
   const [platforms, setPlatforms] = useState<PlatformFormData[]>(
     business.platforms.length > 0
       ? business.platforms.map(p => ({ name: p.name, url: p.url, weight: p.weight }))
@@ -28,7 +35,10 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
   );
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const updatePlatform = (index: number, field: keyof PlatformFormData, value: string | number) => {
     const newPlatforms = [...platforms];
@@ -51,25 +61,103 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // TODO: Implement save to database
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    alert('Settings saved successfully!');
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch(`/api/business/${business.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: businessInfo.name,
+          email: businessInfo.email,
+          platforms: platforms.map((p, index) => ({
+            name: p.name,
+            url: p.url,
+            weight: p.weight,
+            order: index,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save settings');
+      }
+
+      setSuccess('Settings saved successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete "${business.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/business/${business.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete business');
+      }
+
+      // Redirect to admin dashboard
+      router.push('/admin');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setIsDeleting(false);
+    }
   };
 
   const reviewUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/review/${business.slug}`;
-  const emailHtml = generateReviewEmailTemplate(business.slug, business.name);
+  const emailTemplate = generateGmailFriendlyTemplate(business.slug, business.name, reviewUrl);
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <Link href="/admin" className="text-indigo-600 hover:text-indigo-700 mb-4 inline-block">
-          ← Back to Dashboard
-        </Link>
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">{business.name}</h1>
-        <p className="text-gray-600">Configure your review settings and platforms</p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <Link href="/admin" className="text-indigo-600 hover:text-indigo-700 mb-4 inline-block">
+            ← Back to Dashboard
+          </Link>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{business.name}</h1>
+          <p className="text-gray-600">Configure your review settings and platforms</p>
+        </div>
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+        >
+          {isDeleting ? 'Deleting...' : 'Delete Business'}
+        </button>
       </div>
+
+      {/* Status Messages */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm">
+          {success}
+        </div>
+      )}
 
       {/* Business Info */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -79,19 +167,20 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
             <input
               type="text"
-              value={business.name}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              value={businessInfo.name}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, name: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Owner Email</label>
             <input
               type="email"
-              value={business.email}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              value={businessInfo.email}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, email: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
+            <p className="text-xs text-gray-500 mt-1">Feedback notifications will be sent here</p>
           </div>
         </div>
       </div>
@@ -109,7 +198,8 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
           <button
             onClick={() => {
               navigator.clipboard.writeText(reviewUrl);
-              alert('Link copied to clipboard!');
+              setSuccess('Link copied to clipboard!');
+              setTimeout(() => setSuccess(''), 2000);
             }}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
           >
@@ -213,31 +303,56 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Email Template</h2>
         <p className="text-gray-600 mb-4">
-          Use this email template to send review requests to your customers
+          Copy this text to use in Gmail signature or email body
         </p>
         <button
           onClick={() => setShowEmailPreview(!showEmailPreview)}
           className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition mb-4"
         >
-          {showEmailPreview ? 'Hide' : 'Show'} Email Preview
+          {showEmailPreview ? 'Hide' : 'Show'} Email Template
         </button>
 
         {showEmailPreview && (
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 overflow-auto max-h-96">
-            <div dangerouslySetInnerHTML={{ __html: emailHtml }} />
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 mb-4">
+            <pre className="whitespace-pre-wrap text-sm font-mono">{emailTemplate}</pre>
           </div>
         )}
 
         <button
           onClick={() => {
-            navigator.clipboard.writeText(emailHtml);
-            alert('Email HTML copied to clipboard!');
+            navigator.clipboard.writeText(emailTemplate);
+            setSuccess('Email template copied to clipboard! Paste it into Gmail.');
+            setTimeout(() => setSuccess(''), 3000);
           }}
-          className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
         >
-          Copy Email HTML
+          Copy for Gmail
         </button>
+
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800 mb-2">
+            <strong>How to use in Gmail:</strong>
+          </p>
+          <ol className="text-sm text-blue-800 list-decimal list-inside space-y-1">
+            <li>Copy the template above</li>
+            <li>In Gmail, compose a new email or open Settings → Signature</li>
+            <li>Paste the template directly</li>
+            <li>Gmail will automatically convert the URLs to clickable links</li>
+          </ol>
+        </div>
       </div>
     </div>
   );
+}
+
+function generateGmailFriendlyTemplate(slug: string, businessName: string, reviewUrl: string): string {
+  return `How was your experience with ${businessName}?
+
+We'd love to hear your feedback!
+
+😊 Great! - ${reviewUrl}?sentiment=happy
+😐 Okay - ${reviewUrl}?sentiment=neutral
+😞 Not Great - ${reviewUrl}?sentiment=sad
+
+Thank you for taking the time to share your feedback!`;
 }

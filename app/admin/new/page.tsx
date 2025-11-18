@@ -12,16 +12,34 @@ export default function NewBusinessPage() {
     email: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError('');
 
-    // TODO: Implement API call to create business
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch('/api/business', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-    alert('Business created successfully!');
-    router.push('/admin');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create business');
+      }
+
+      // Redirect to the newly created business settings page
+      router.push(`/admin/business/${data.business.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setIsSubmitting(false);
+    }
   };
 
   const generateSlug = (name: string) => {
@@ -53,6 +71,12 @@ export default function NewBusinessPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                 Business Name *

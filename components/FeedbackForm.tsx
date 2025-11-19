@@ -61,8 +61,8 @@ export default function FeedbackForm({ businessId, businessSlug, rating }: Feedb
         throw new Error('Failed to submit feedback');
       }
 
-      // Redirect to thank you page
-      router.push(`/feedback/${businessSlug}/thank-you`);
+      // Redirect to thank you page with wantsContact parameter
+      router.push(`/feedback/${businessSlug}/thank-you?wantsContact=${formData.wantsContact}`);
     } catch (err) {
       setError('Something went wrong. Please try again.');
       setIsSubmitting(false);

@@ -34,11 +34,20 @@ async function handleUpdate(
 ) {
   try {
     const body = await request.json();
-    const { name, email, platforms } = body;
+    const { name, email, websiteUrl, facebookUrl, instagramUrl, linkedinUrl, logoUrl, platforms } = body;
 
     // Update basic info if provided
-    if (name || email) {
-      await updateBusiness(params.id, { name, email });
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (websiteUrl !== undefined) updateData.websiteUrl = websiteUrl;
+    if (facebookUrl !== undefined) updateData.facebookUrl = facebookUrl;
+    if (instagramUrl !== undefined) updateData.instagramUrl = instagramUrl;
+    if (linkedinUrl !== undefined) updateData.linkedinUrl = linkedinUrl;
+    if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
+
+    if (Object.keys(updateData).length > 0) {
+      await updateBusiness(params.id, updateData);
     }
 
     // Update platforms if provided

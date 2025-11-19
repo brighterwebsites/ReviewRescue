@@ -22,7 +22,15 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
   const [businessInfo, setBusinessInfo] = useState({
     name: business.name,
     email: business.email,
+    websiteUrl: business.websiteUrl || '',
+    facebookUrl: business.facebookUrl || '',
+    instagramUrl: business.instagramUrl || '',
+    linkedinUrl: business.linkedinUrl || '',
+    logoUrl: business.logoUrl || '',
   });
+
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   const [platforms, setPlatforms] = useState<PlatformFormData[]>(
     business.platforms.length > 0
@@ -59,6 +67,37 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
   const totalWeight = platforms.reduce((sum, p) => sum + p.weight, 0);
   const isValid = totalWeight === 100 && platforms.every(p => p.url.trim() !== '' || p.weight === 0);
 
+  const handleLogoUpload = async (file: File) => {
+    setIsUploadingLogo(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('businessSlug', business.slug);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload logo');
+      }
+
+      // Update businessInfo with new logo URL
+      setBusinessInfo({ ...businessInfo, logoUrl: data.logoUrl });
+      setSuccess('Logo uploaded successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Logo upload failed');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setError('');
@@ -74,6 +113,11 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         body: JSON.stringify({
           name: businessInfo.name,
           email: businessInfo.email,
+          websiteUrl: businessInfo.websiteUrl,
+          facebookUrl: businessInfo.facebookUrl,
+          instagramUrl: businessInfo.instagramUrl,
+          linkedinUrl: businessInfo.linkedinUrl,
+          logoUrl: businessInfo.logoUrl,
           platforms: platforms.map((p, index) => ({
             name: p.name,
             url: p.url,
@@ -183,6 +227,92 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">Feedback notifications will be sent here</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Logo and Social Media Links */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Branding & Social Links</h2>
+
+        {/* Logo Upload */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Business Logo</label>
+          <div className="flex items-center gap-4">
+            {businessInfo.logoUrl && (
+              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
+                <img
+                  src={businessInfo.logoUrl}
+                  alt="Business logo"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                      setError('Logo file size must be less than 5MB');
+                      return;
+                    }
+                    handleLogoUpload(file);
+                  }
+                }}
+                disabled={isUploadingLogo}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                JPG or PNG, max 5MB. Will be auto-resized to 200px height.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Social Media Links */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+            <input
+              type="url"
+              value={businessInfo.websiteUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, websiteUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://www.example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Facebook URL</label>
+            <input
+              type="url"
+              value={businessInfo.facebookUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, facebookUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://facebook.com/yourpage"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram URL</label>
+            <input
+              type="url"
+              value={businessInfo.instagramUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, instagramUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://instagram.com/yourprofile"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn URL</label>
+            <input
+              type="url"
+              value={businessInfo.linkedinUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, linkedinUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://linkedin.com/company/yourcompany"
+            />
           </div>
         </div>
       </div>

@@ -55,7 +55,11 @@ export default async function ReviewPage({ params, searchParams }: PageProps) {
   // Show sentiment selector
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <SentimentSelector businessName={business.name} businessSlug={business.slug} />
+      <SentimentSelector
+        businessName={business.name}
+        businessSlug={business.slug}
+        logoUrl={business.logoUrl}
+      />
     </div>
   );
 }

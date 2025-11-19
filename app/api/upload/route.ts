@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { existsSync } from 'fs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,8 +49,14 @@ export async function POST(request: NextRequest) {
     const ext = file.type === 'image/png' ? 'png' : 'jpg';
     const filename = `${businessSlug}_logo.${ext}`;
 
+    // Ensure uploads directory exists
+    const uploadsDir = join(process.cwd(), 'public', 'uploads');
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
+
     // Save original file to public/uploads
-    const filepath = join(process.cwd(), 'public', 'uploads', filename);
+    const filepath = join(uploadsDir, filename);
     await writeFile(filepath, buffer);
 
     const logoUrl = `/uploads/${filename}`;
@@ -57,8 +64,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, logoUrl });
   } catch (error) {
     console.error('Error uploading logo:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: `Upload failed: ${errorMessage}` },
       { status: 500 }
     );
   }

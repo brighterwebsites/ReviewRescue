@@ -64,8 +64,27 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
     setPlatforms(newPlatforms);
   };
 
+  const clearPlatform = (index: number) => {
+    const newPlatforms = [...platforms];
+    newPlatforms[index] = { name: '', url: '', weight: 0 };
+
+    // Recalculate weights for the third platform
+    if (index < 2) {
+      const remaining = calculateRemainingWeight(
+        newPlatforms.map(p => ({ weight: p.weight })),
+        2
+      );
+      newPlatforms[2].weight = remaining;
+    }
+
+    setPlatforms(newPlatforms);
+  };
+
   const totalWeight = platforms.reduce((sum, p) => sum + p.weight, 0);
-  const isValid = totalWeight === 100 && platforms.every(p => p.url.trim() !== '' || p.weight === 0);
+  // Allow saving if: (1) no platforms are configured (all weights are 0), OR (2) weights = 100% and all platforms with weight > 0 have URLs
+  const noPlatformsConfigured = platforms.every(p => p.weight === 0);
+  const platformsValid = totalWeight === 100 && platforms.every(p => p.url.trim() !== '' || p.weight === 0);
+  const isValid = noPlatformsConfigured || platformsValid;
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -354,6 +373,18 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         <div className="space-y-6">
           {platforms.map((platform, index) => (
             <div key={index} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-medium text-gray-900">Platform {index + 1}</h3>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearPlatform(index)}
+                    className="text-sm text-red-600 hover:text-red-700 hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <div className="grid md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -405,13 +436,18 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex justify-between items-center mb-2">
             <span className="font-medium text-gray-700">Total Weight:</span>
-            <span className={`font-bold ${totalWeight === 100 ? 'text-green-600' : 'text-red-600'}`}>
+            <span className={`font-bold ${totalWeight === 100 || noPlatformsConfigured ? 'text-green-600' : 'text-red-600'}`}>
               {totalWeight}%
             </span>
           </div>
-          {totalWeight !== 100 && (
+          {!noPlatformsConfigured && totalWeight !== 100 && (
             <p className="text-sm text-red-600">
-              Total weight must equal 100%
+              Total weight must equal 100% to save platforms
+            </p>
+          )}
+          {noPlatformsConfigured && (
+            <p className="text-sm text-gray-600">
+              No platforms configured yet. You can still save business info and branding.
             </p>
           )}
         </div>

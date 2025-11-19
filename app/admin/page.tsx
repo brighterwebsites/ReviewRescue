@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { getAllBusinesses } from '@/lib/db';
 
+// Force dynamic rendering - always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminPage() {
   const businesses = await getAllBusinesses();
 
@@ -49,8 +53,12 @@ export default async function AdminPage() {
                   <div className="text-sm">
                     <span className="font-medium text-gray-700">Platforms:</span>
                     <span className="ml-2 text-gray-600">
-                      {business.platforms.length} configured
+                      {business.platforms.filter(p => p.url.trim() !== '').length} configured
                     </span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-700">Business Name:</span>
+                    <span className="ml-2 text-gray-600">{business.name}</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-medium text-gray-700">Email:</span>

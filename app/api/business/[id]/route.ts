@@ -27,10 +27,10 @@ export async function GET(
   }
 }
 
-// PATCH update business
-export async function PATCH(
+// Shared update logic for both PATCH and POST
+async function handleUpdate(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  params: { id: string }
 ) {
   try {
     const body = await request.json();
@@ -67,10 +67,37 @@ export async function PATCH(
   }
 }
 
-// DELETE business
-export async function DELETE(
+// POST handler with method override support (workaround for proxy blocking PATCH)
+export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
+) {
+  const url = new URL(request.url);
+  const method = url.searchParams.get('_method');
+
+  // If _method=PATCH or _method=DELETE, handle accordingly
+  if (method === 'PATCH') {
+    return handleUpdate(request, params);
+  } else if (method === 'DELETE') {
+    return handleDelete(request, params);
+  }
+
+  // Default POST behavior is to update (same as PATCH)
+  return handleUpdate(request, params);
+}
+
+// PATCH update business
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return handleUpdate(request, params);
+}
+
+// Shared delete logic for both DELETE and POST
+async function handleDelete(
+  request: NextRequest,
+  params: { id: string }
 ) {
   try {
     const success = await deleteBusiness(params.id);
@@ -90,4 +117,12 @@ export async function DELETE(
       { status: 500 }
     );
   }
+}
+
+// DELETE business
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return handleDelete(request, params);
 }

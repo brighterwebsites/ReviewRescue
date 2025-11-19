@@ -65,8 +65,9 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
     setSuccess('');
 
     try {
+      // Use POST instead of PATCH (workaround for proxy blocking PATCH)
       const response = await fetch(`/api/business/${business.id}`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -106,8 +107,9 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
     setError('');
 
     try {
-      const response = await fetch(`/api/business/${business.id}`, {
-        method: 'DELETE',
+      // Use POST with _method=DELETE (workaround for proxy blocking DELETE)
+      const response = await fetch(`/api/business/${business.id}?_method=DELETE`, {
+        method: 'POST',
       });
 
       const data = await response.json();

@@ -92,6 +92,13 @@ export default async function AdminPage() {
             View Demo
           </Link>
         </div>
+
+        {/* Version Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">
+            ReviewRescue v0.2.0 • Build: {new Date().toISOString().split('T')[0]}
+          </p>
+        </div>
       </div>
     </div>
   );

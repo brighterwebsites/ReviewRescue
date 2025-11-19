@@ -3,6 +3,11 @@ export interface Business {
   name: string;
   slug: string;
   email: string;
+  websiteUrl?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  linkedinUrl?: string;
+  logoUrl?: string;
   platforms: ReviewPlatform[];
   lastPlatformIndex: number;
   createdAt: Date;
@@ -35,3 +40,11 @@ export interface Feedback {
 }
 
 export type SentimentType = 'happy' | 'neutral' | 'sad';
+
+export interface Stat {
+  id: string;
+  businessId: string;
+  eventType: string;
+  platformName?: string;
+  createdAt: Date;
+}

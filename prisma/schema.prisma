@@ -14,12 +14,21 @@ model Business {
   name          String
   slug          String   @unique // For subdomain or path (e.g., "johns-cafe")
   email         String   // Owner email to receive feedback
+
+  // Business Links
+  websiteUrl    String?  // Business website URL
+  facebookUrl   String?  // Facebook page URL
+  instagramUrl  String?  // Instagram profile URL
+  linkedinUrl   String?  // LinkedIn profile URL
+  logoUrl       String?  // Logo file path (businessname_logo.jpg/png)
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Review platforms with weighting
   platforms     ReviewPlatform[]
   feedbacks     Feedback[]
+  stats         Stat[]
 
   // Tracking for round-robin distribution
   lastPlatformIndex Int @default(0)
@@ -60,5 +69,23 @@ model Feedback {
   read        Boolean  @default(false)
 
   @@index([businessId])
+  @@index([createdAt])
+}
+
+model Stat {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Event type: "happy", "neutral", "sad", "redirect_platform1", "redirect_platform2", "redirect_platform3", "bounce"
+  eventType   String
+
+  // Platform redirect tracking (if eventType starts with "redirect_")
+  platformName String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([eventType])
   @@index([createdAt])
 }

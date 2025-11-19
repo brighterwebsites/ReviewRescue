@@ -1,60 +1,39 @@
-import { Business, ReviewPlatform, Feedback } from '@/types';
+import { PrismaClient } from '@prisma/client';
+import { Business, ReviewPlatform, Feedback, Stat } from '@/types';
 
-// Mock database for development
-// TODO: Replace with actual Prisma client once database is set up
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
-const mockBusinesses: Business[] = [
-  {
-    id: '1',
-    name: "John's Cafe",
-    slug: 'johns-cafe',
-    email: 'owner@johnscafe.com',
-    lastPlatformIndex: 0,
-    platforms: [
-      {
-        id: 'p1',
-        businessId: '1',
-        name: 'Google Reviews',
-        url: 'https://g.page/r/YOUR_GOOGLE_REVIEW_LINK',
-        weight: 50,
-        order: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: 'p2',
-        businessId: '1',
-        name: 'Trust Pilot',
-        url: 'https://www.trustpilot.com/review/yourbusiness.com',
-        weight: 25,
-        order: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: 'p3',
-        businessId: '1',
-        name: 'Facebook',
-        url: 'https://www.facebook.com/yourbusiness/reviews',
-        weight: 25,
-        order: 2,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
-const mockFeedbacks: Feedback[] = [];
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+// Business operations
 export async function getBusinessBySlug(slug: string): Promise<Business | null> {
-  return mockBusinesses.find(b => b.slug === slug) || null;
+  const business = await prisma.business.findUnique({
+    where: { slug },
+    include: {
+      platforms: {
+        orderBy: { order: 'asc' },
+      },
+    },
+  });
+
+  return business as Business | null;
 }
 
 export async function getAllBusinesses(): Promise<Business[]> {
-  return mockBusinesses;
+  const businesses = await prisma.business.findMany({
+    include: {
+      platforms: {
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return businesses as Business[];
 }
 
 export async function createBusiness(data: {
@@ -62,60 +41,104 @@ export async function createBusiness(data: {
   slug: string;
   email: string;
 }): Promise<Business> {
-  const business: Business = {
-    id: Date.now().toString(),
-    ...data,
-    platforms: [],
-    lastPlatformIndex: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  mockBusinesses.push(business);
-  return business;
+  const business = await prisma.business.create({
+    data: {
+      ...data,
+      platforms: {
+        create: [
+          {
+            name: 'Google Reviews',
+            url: '',
+            weight: 100,
+            order: 0,
+          },
+          {
+            name: 'Trust Pilot',
+            url: '',
+            weight: 0,
+            order: 1,
+          },
+          {
+            name: 'Facebook Reviews',
+            url: '',
+            weight: 0,
+            order: 2,
+          },
+        ],
+      },
+    },
+    include: {
+      platforms: {
+        orderBy: { order: 'asc' },
+      },
+    },
+  });
+
+  return business as Business;
 }
 
-export async function updateBusiness(id: string, data: Partial<Business>): Promise<Business | null> {
-  const index = mockBusinesses.findIndex(b => b.id === id);
-  if (index === -1) return null;
-  mockBusinesses[index] = { ...mockBusinesses[index], ...data, updatedAt: new Date() };
-  return mockBusinesses[index];
+export async function updateBusiness(
+  id: string,
+  data: Partial<{
+    name: string;
+    email: string;
+    websiteUrl: string;
+    facebookUrl: string;
+    instagramUrl: string;
+    linkedinUrl: string;
+    logoUrl: string;
+    lastPlatformIndex: number;
+  }>
+): Promise<Business | null> {
+  const business = await prisma.business.update({
+    where: { id },
+    data,
+    include: {
+      platforms: {
+        orderBy: { order: 'asc' },
+      },
+    },
+  });
+
+  return business as Business;
 }
 
-export async function createReviewPlatform(data: {
-  businessId: string;
-  name: string;
-  url: string;
-  weight: number;
-  order: number;
-}): Promise<ReviewPlatform> {
-  const platform: ReviewPlatform = {
-    id: Date.now().toString(),
-    ...data,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  const business = mockBusinesses.find(b => b.id === data.businessId);
-  if (business) {
-    business.platforms.push(platform);
+export async function deleteBusiness(id: string): Promise<boolean> {
+  try {
+    await prisma.business.delete({
+      where: { id },
+    });
+    return true;
+  } catch {
+    return false;
   }
-
-  return platform;
 }
 
-export async function updateReviewPlatforms(businessId: string, platforms: Omit<ReviewPlatform, 'id' | 'businessId' | 'createdAt' | 'updatedAt'>[]): Promise<void> {
-  const business = mockBusinesses.find(b => b.id === businessId);
-  if (!business) return;
+// Platform operations
+export async function updateReviewPlatforms(
+  businessId: string,
+  platforms: Array<{
+    name: string;
+    url: string;
+    weight: number;
+    order: number;
+  }>
+): Promise<void> {
+  // Delete existing platforms
+  await prisma.reviewPlatform.deleteMany({
+    where: { businessId },
+  });
 
-  business.platforms = platforms.map((p, index) => ({
-    id: business.platforms[index]?.id || Date.now().toString() + index,
-    businessId,
-    ...p,
-    createdAt: business.platforms[index]?.createdAt || new Date(),
-    updatedAt: new Date(),
-  }));
+  // Create new platforms
+  await prisma.reviewPlatform.createMany({
+    data: platforms.map((p) => ({
+      ...p,
+      businessId,
+    })),
+  });
 }
 
+// Feedback operations
 export async function createFeedback(data: {
   businessId: string;
   name: string;
@@ -126,37 +149,72 @@ export async function createFeedback(data: {
   stars: number;
   wantsContact: boolean;
 }): Promise<Feedback> {
-  const feedback: Feedback = {
-    id: Date.now().toString(),
-    ...data,
-    phone: data.phone || undefined,
-    createdAt: new Date(),
-    read: false,
-  };
-  mockFeedbacks.push(feedback);
-  return feedback;
-}
+  const feedback = await prisma.feedback.create({
+    data: {
+      ...data,
+      phone: data.phone || null,
+    },
+  });
 
-export async function deleteBusiness(id: string): Promise<boolean> {
-  const index = mockBusinesses.findIndex(b => b.id === id);
-  if (index === -1) return false;
-  mockBusinesses.splice(index, 1);
-  // Also delete associated feedbacks
-  const feedbackIndexes = mockFeedbacks
-    .map((f, i) => f.businessId === id ? i : -1)
-    .filter(i => i !== -1)
-    .reverse();
-  feedbackIndexes.forEach(i => mockFeedbacks.splice(i, 1));
-  return true;
+  return feedback as Feedback;
 }
 
 export async function getFeedbackByBusinessId(businessId: string): Promise<Feedback[]> {
-  return mockFeedbacks.filter(f => f.businessId === businessId);
+  const feedbacks = await prisma.feedback.findMany({
+    where: { businessId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return feedbacks as Feedback[];
 }
 
 export async function markFeedbackAsRead(id: string): Promise<void> {
-  const feedback = mockFeedbacks.find(f => f.id === id);
-  if (feedback) {
-    feedback.read = true;
+  await prisma.feedback.update({
+    where: { id },
+    data: { read: true },
+  });
+}
+
+// Stats operations
+export async function createStat(data: {
+  businessId: string;
+  eventType: string;
+  platformName?: string;
+}): Promise<Stat> {
+  const stat = await prisma.stat.create({
+    data: {
+      ...data,
+      platformName: data.platformName || null,
+    },
+  });
+
+  return stat as Stat;
+}
+
+export async function getStatsByBusinessId(
+  businessId: string,
+  daysAgo?: number
+): Promise<Stat[]> {
+  const where: any = { businessId };
+
+  if (daysAgo) {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    where.createdAt = {
+      gte: date,
+    };
   }
+
+  const stats = await prisma.stat.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return stats as Stat[];
+}
+
+export async function resetStatsByBusinessId(businessId: string): Promise<void> {
+  await prisma.stat.deleteMany({
+    where: { businessId },
+  });
 }

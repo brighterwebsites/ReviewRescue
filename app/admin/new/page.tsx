@@ -106,7 +106,7 @@ export default function NewBusinessPage() {
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   placeholder="johns-cafe"
-                  pattern="[a-z0-9-]+"
+                  pattern="[a-z0-9\-]+"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">

@@ -30,7 +30,7 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(business.logoUrl || null);
 
   const [platforms, setPlatforms] = useState<PlatformFormData[]>(
     business.platforms.length > 0
@@ -67,43 +67,34 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
   const totalWeight = platforms.reduce((sum, p) => sum + p.weight, 0);
   const isValid = totalWeight === 100 && platforms.every(p => p.url.trim() !== '' || p.weight === 0);
 
-  const handleLogoUpload = async (file: File) => {
-    setIsUploadingLogo(true);
-    setError('');
-
-    try {
-      const formData = new FormData();
-      formData.append('logo', file);
-      formData.append('businessSlug', business.slug);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to upload logo');
-      }
-
-      // Update businessInfo with new logo URL
-      setBusinessInfo({ ...businessInfo, logoUrl: data.logoUrl });
-      setSuccess('Logo uploaded successfully!');
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Logo upload failed');
-    } finally {
-      setIsUploadingLogo(false);
-    }
-  };
-
   const handleSave = async () => {
     setIsSaving(true);
     setError('');
     setSuccess('');
 
     try {
+      let logoUrl = businessInfo.logoUrl;
+
+      // Upload logo first if a new file is selected
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append('logo', logoFile);
+        formData.append('businessSlug', business.slug);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadData.error || 'Failed to upload logo');
+        }
+
+        logoUrl = uploadData.logoUrl;
+      }
+
       // Use POST instead of PATCH (workaround for proxy blocking PATCH)
       const response = await fetch(`/api/business/${business.id}`, {
         method: 'POST',
@@ -117,7 +108,7 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
           facebookUrl: businessInfo.facebookUrl,
           instagramUrl: businessInfo.instagramUrl,
           linkedinUrl: businessInfo.linkedinUrl,
-          logoUrl: businessInfo.logoUrl,
+          logoUrl: logoUrl,
           platforms: platforms.map((p, index) => ({
             name: p.name,
             url: p.url,
@@ -133,7 +124,8 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         throw new Error(data.error || 'Failed to save settings');
       }
 
-      setSuccess('Settings saved successfully!');
+      setSuccess('All settings saved successfully!');
+      setLogoFile(null); // Clear the file after successful save
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -239,10 +231,10 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">Business Logo</label>
           <div className="flex items-center gap-4">
-            {businessInfo.logoUrl && (
+            {logoPreview && (
               <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
                 <img
-                  src={businessInfo.logoUrl}
+                  src={logoPreview}
                   alt="Business logo"
                   className="w-full h-full object-cover"
                 />
@@ -259,14 +251,19 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
                       setError('Logo file size must be less than 5MB');
                       return;
                     }
-                    handleLogoUpload(file);
+                    // Store file and show preview
+                    setLogoFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setLogoPreview(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
                   }
                 }}
-                disabled={isUploadingLogo}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
               />
               <p className="text-xs text-gray-500 mt-1">
-                JPG or PNG, max 5MB. Will be auto-resized to 200px height.
+                JPG or PNG, max 5MB. {logoFile && <span className="text-indigo-600 font-medium">Ready to upload - click "Save All Settings" below</span>}
               </p>
             </div>
           </div>
@@ -418,17 +415,20 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
             </p>
           )}
         </div>
+      </div>
 
-        {/* Save Button */}
-        <div className="mt-6">
-          <button
-            onClick={handleSave}
-            disabled={!isValid || isSaving}
-            className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-          >
-            {isSaving ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
+      {/* Unified Save Button for All Settings */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <button
+          onClick={handleSave}
+          disabled={!isValid || isSaving}
+          className="w-full py-4 bg-indigo-600 text-white text-lg font-semibold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition shadow-lg"
+        >
+          {isSaving ? 'Saving All Settings...' : 'Save All Settings'}
+        </button>
+        <p className="text-sm text-gray-500 text-center mt-3">
+          This will save business information, branding, social links, and review platforms
+        </p>
       </div>
 
       {/* Email Template */}

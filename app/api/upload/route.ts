@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
-import sharp from 'sharp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,19 +48,9 @@ export async function POST(request: NextRequest) {
     const ext = file.type === 'image/png' ? 'png' : 'jpg';
     const filename = `${businessSlug}_logo.${ext}`;
 
-    // Resize image to max height 200px maintaining aspect ratio
-    const resizedBuffer = await sharp(buffer)
-      .resize({
-        height: 200,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .toFormat(ext === 'png' ? 'png' : 'jpeg')
-      .toBuffer();
-
-    // Save to public/uploads
+    // Save original file to public/uploads
     const filepath = join(process.cwd(), 'public', 'uploads', filename);
-    await writeFile(filepath, resizedBuffer);
+    await writeFile(filepath, buffer);
 
     const logoUrl = `/uploads/${filename}`;
 

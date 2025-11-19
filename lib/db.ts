@@ -120,17 +120,34 @@ export async function createFeedback(data: {
   businessId: string;
   name: string;
   email: string;
+  phone?: string;
   message: string;
   rating: 'neutral' | 'sad';
+  stars: number;
+  wantsContact: boolean;
 }): Promise<Feedback> {
   const feedback: Feedback = {
     id: Date.now().toString(),
     ...data,
+    phone: data.phone || undefined,
     createdAt: new Date(),
     read: false,
   };
   mockFeedbacks.push(feedback);
   return feedback;
+}
+
+export async function deleteBusiness(id: string): Promise<boolean> {
+  const index = mockBusinesses.findIndex(b => b.id === id);
+  if (index === -1) return false;
+  mockBusinesses.splice(index, 1);
+  // Also delete associated feedbacks
+  const feedbackIndexes = mockFeedbacks
+    .map((f, i) => f.businessId === id ? i : -1)
+    .filter(i => i !== -1)
+    .reverse();
+  feedbackIndexes.forEach(i => mockFeedbacks.splice(i, 1));
+  return true;
 }
 
 export async function getFeedbackByBusinessId(businessId: string): Promise<Feedback[]> {

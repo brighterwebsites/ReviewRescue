@@ -37,6 +37,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid credentials');
         }
 
+        // Update last login timestamp
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() }
+        });
+
         return {
           id: user.id,
           email: user.email,
@@ -60,7 +66,14 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
       }
       return session;
-    }
+    },
+    async redirect({ url, baseUrl }) {
+      // Fix redirect to use HTTPS in production
+      const productionUrl = process.env.NEXTAUTH_URL || baseUrl;
+      if (url.startsWith('/')) return productionUrl + url;
+      if (url.startsWith(baseUrl)) return url.replace('http://', 'https://');
+      return productionUrl;
+    },
   },
   pages: {
     signIn: '/login',

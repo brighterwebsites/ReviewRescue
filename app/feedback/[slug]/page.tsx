@@ -28,10 +28,7 @@ export default async function FeedbackPage({ params, searchParams }: PageProps) 
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full bg-white rounded-2xl shadow-2xl p-8 md:p-12">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">
-            {rating === 'sad' ? '😞' : '😐'}
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
             {heading}
           </h1>
         </div>

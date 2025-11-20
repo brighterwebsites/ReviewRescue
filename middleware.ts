@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get('host') || '';
+  const pathname = url.pathname;
+
+  // Handle authentication for protected routes
+  if (pathname.startsWith('/admin')) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET
+    });
+
+    if (!token) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
 
   // Get the base domain from env or default to localhost
   const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'localhost:3000';

@@ -173,7 +173,8 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         throw new Error(data.error || 'Failed to delete business');
       }
 
-      // Redirect to admin dashboard
+      // Force refresh and redirect to admin dashboard
+      router.refresh();
       router.push('/admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -262,6 +263,7 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
             <div className="flex-1">
               <input
                 type="file"
+                id="logo-upload"
                 accept="image/jpeg,image/jpg,image/png"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -279,9 +281,15 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
                     reader.readAsDataURL(file);
                   }
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                className="hidden"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <label
+                htmlFor="logo-upload"
+                className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition"
+              >
+                {logoPreview ? 'Change Logo' : 'Choose Logo'}
+              </label>
+              <p className="text-xs text-gray-500 mt-2">
                 JPG or PNG, max 5MB. {logoFile && <span className="text-indigo-600 font-medium">Ready to upload - click "Save All Settings" below</span>}
               </p>
             </div>

@@ -2,6 +2,62 @@ import { Feedback } from '@/types';
 import nodemailer from 'nodemailer';
 
 /**
+ * Creates and returns a configured nodemailer transporter
+ */
+function createTransporter() {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    throw new Error('SMTP not configured');
+  }
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false, // Use TLS
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  });
+}
+
+/**
+ * Generic email sending function
+ */
+export async function sendEmail(options: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<void> {
+  // Check if SMTP is configured
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    console.log('SMTP not configured, skipping email');
+    console.log('Email details:', {
+      to: options.to,
+      subject: options.subject,
+    });
+    return;
+  }
+
+  try {
+    const transporter = createTransporter();
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+    });
+
+    console.log(`Email sent to ${options.to}`);
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw error;
+  }
+}
+
+/**
  * Sends a feedback notification email to the business owner
  */
 export async function sendFeedbackNotification(
@@ -21,15 +77,7 @@ export async function sendFeedbackNotification(
   }
 
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false, // Use TLS
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
+    const transporter = createTransporter();
 
     const starRating = '⭐'.repeat(feedback.stars);
     const contactRequest = feedback.wantsContact

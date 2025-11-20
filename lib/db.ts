@@ -36,10 +36,25 @@ export async function getAllBusinesses(): Promise<Business[]> {
   return businesses as Business[];
 }
 
+export async function getBusinessesByUserId(userId: string): Promise<Business[]> {
+  const businesses = await prisma.business.findMany({
+    where: { userId },
+    include: {
+      platforms: {
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return businesses as Business[];
+}
+
 export async function createBusiness(data: {
   name: string;
   slug: string;
   email: string;
+  userId: string;
 }): Promise<Business> {
   const business = await prisma.business.create({
     data: {

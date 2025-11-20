@@ -1,25 +1,51 @@
 import Link from 'next/link';
-import { getAllBusinesses } from '@/lib/db';
+import { getAllBusinesses, getBusinessesByUserId } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+
+// Force dynamic rendering - always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function AdminPage() {
-  const businesses = await getAllBusinesses();
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    redirect('/login');
+  }
+
+  // If user is admin, show all businesses. Otherwise, show only their businesses.
+  const businesses = session.user.role === 'ADMIN'
+    ? await getAllBusinesses()
+    : await getBusinessesByUserId(session.user.id);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage your businesses and review settings</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            {session.user.role === 'ADMIN' ? 'Admin Dashboard' : 'My Businesses'}
+          </h1>
+          <p className="text-gray-600">
+            Welcome, {session.user.name} ({session.user.email})
+          </p>
         </div>
 
         {/* Actions */}
-        <div className="mb-8 flex gap-4">
+        <div className="mb-8 flex gap-4 justify-between items-center">
           <Link
             href="/admin/new"
             className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
           >
             + Add New Business
+          </Link>
+          <Link
+            href="/api/auth/signout"
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition"
+          >
+            Sign Out
           </Link>
         </div>
 
@@ -49,8 +75,12 @@ export default async function AdminPage() {
                   <div className="text-sm">
                     <span className="font-medium text-gray-700">Platforms:</span>
                     <span className="ml-2 text-gray-600">
-                      {business.platforms.length} configured
+                      {business.platforms.filter(p => p.url.trim() !== '').length} configured
                     </span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-700">Business Name:</span>
+                    <span className="ml-2 text-gray-600">{business.name}</span>
                   </div>
                   <div className="text-sm">
                     <span className="font-medium text-gray-700">Email:</span>

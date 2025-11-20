@@ -61,8 +61,8 @@ export default function FeedbackForm({ businessId, businessSlug, rating }: Feedb
         throw new Error('Failed to submit feedback');
       }
 
-      // Redirect to thank you page
-      router.push(`/feedback/${businessSlug}/thank-you`);
+      // Redirect to thank you page with wantsContact parameter
+      router.push(`/feedback/${businessSlug}/thank-you?wantsContact=${formData.wantsContact}`);
     } catch (err) {
       setError('Something went wrong. Please try again.');
       setIsSubmitting(false);
@@ -78,11 +78,30 @@ export default function FeedbackForm({ businessId, businessSlug, rating }: Feedb
       )}
 
       {/* Star Rating */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+      <div className="text-center">
+        <label className="block text-lg font-semibold text-gray-800 mb-6">
           How would you rate your experience? *
         </label>
-        <div className="flex items-center gap-2">
+        {/* Desktop: Stars with emoji on right */}
+        <div className="hidden md:flex items-center justify-center gap-4">
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFormData({ ...formData, stars: star })}
+                className="text-5xl hover:scale-110 transition-transform"
+              >
+                {star <= formData.stars ? '⭐' : '☆'}
+              </button>
+            ))}
+          </div>
+          <div className="text-6xl ml-6 transform transition-all duration-300">
+            {getEmojiForStars(formData.stars)}
+          </div>
+        </div>
+        {/* Mobile: Stars with emoji underneath */}
+        <div className="md:hidden flex flex-col items-center gap-4">
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
@@ -95,7 +114,7 @@ export default function FeedbackForm({ businessId, businessSlug, rating }: Feedb
               </button>
             ))}
           </div>
-          <div className="text-5xl ml-4 transform transition-all duration-300">
+          <div className="text-6xl transform transition-all duration-300">
             {getEmojiForStars(formData.stars)}
           </div>
         </div>

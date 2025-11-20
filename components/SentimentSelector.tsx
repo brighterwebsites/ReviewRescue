@@ -5,12 +5,26 @@ import Link from 'next/link';
 interface SentimentSelectorProps {
   businessName: string;
   businessSlug: string;
+  logoUrl?: string | null;
 }
 
-export default function SentimentSelector({ businessName, businessSlug }: SentimentSelectorProps) {
+export default function SentimentSelector({ businessName, businessSlug, logoUrl }: SentimentSelectorProps) {
   return (
     <div className="max-w-3xl w-full bg-white rounded-2xl shadow-2xl p-8 md:p-12">
       <div className="text-center">
+        {/* Logo */}
+        {logoUrl && (
+          <div className="flex justify-center mb-6">
+            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-indigo-100 shadow-lg">
+              <img
+                src={logoUrl}
+                alt={`${businessName} logo`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        )}
+
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
           How was your experience with {businessName}?
         </h1>

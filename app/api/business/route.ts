@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createBusiness, getAllBusinesses } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET all businesses
 export async function GET() {
@@ -18,6 +20,15 @@ export async function GET() {
 // POST create new business
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { name, slug, email } = body;
 
@@ -46,7 +57,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const business = await createBusiness({ name, slug, email });
+    const business = await createBusiness({
+      name,
+      slug,
+      email,
+      userId: session.user.id
+    });
 
     return NextResponse.json({ success: true, business });
   } catch (error) {

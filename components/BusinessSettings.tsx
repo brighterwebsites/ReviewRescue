@@ -22,7 +22,15 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
   const [businessInfo, setBusinessInfo] = useState({
     name: business.name,
     email: business.email,
+    websiteUrl: business.websiteUrl || '',
+    facebookUrl: business.facebookUrl || '',
+    instagramUrl: business.instagramUrl || '',
+    linkedinUrl: business.linkedinUrl || '',
+    logoUrl: business.logoUrl || '',
   });
+
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(business.logoUrl || null);
 
   const [platforms, setPlatforms] = useState<PlatformFormData[]>(
     business.platforms.length > 0
@@ -56,8 +64,27 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
     setPlatforms(newPlatforms);
   };
 
+  const clearPlatform = (index: number) => {
+    const newPlatforms = [...platforms];
+    newPlatforms[index] = { name: '', url: '', weight: 0 };
+
+    // Recalculate weights for the third platform
+    if (index < 2) {
+      const remaining = calculateRemainingWeight(
+        newPlatforms.map(p => ({ weight: p.weight })),
+        2
+      );
+      newPlatforms[2].weight = remaining;
+    }
+
+    setPlatforms(newPlatforms);
+  };
+
   const totalWeight = platforms.reduce((sum, p) => sum + p.weight, 0);
-  const isValid = totalWeight === 100 && platforms.every(p => p.url.trim() !== '' || p.weight === 0);
+  // Allow saving if: (1) no platforms are configured (all weights are 0), OR (2) weights = 100% and all platforms with weight > 0 have URLs
+  const noPlatformsConfigured = platforms.every(p => p.weight === 0);
+  const platformsValid = totalWeight === 100 && platforms.every(p => p.url.trim() !== '' || p.weight === 0);
+  const isValid = noPlatformsConfigured || platformsValid;
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -65,14 +92,42 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
     setSuccess('');
 
     try {
+      let logoUrl = businessInfo.logoUrl;
+
+      // Upload logo first if a new file is selected
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append('logo', logoFile);
+        formData.append('businessSlug', business.slug);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadResponse.ok) {
+          throw new Error(uploadData.error || 'Failed to upload logo');
+        }
+
+        logoUrl = uploadData.logoUrl;
+      }
+
+      // Use POST instead of PATCH (workaround for proxy blocking PATCH)
       const response = await fetch(`/api/business/${business.id}`, {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name: businessInfo.name,
           email: businessInfo.email,
+          websiteUrl: businessInfo.websiteUrl,
+          facebookUrl: businessInfo.facebookUrl,
+          instagramUrl: businessInfo.instagramUrl,
+          linkedinUrl: businessInfo.linkedinUrl,
+          logoUrl: logoUrl,
           platforms: platforms.map((p, index) => ({
             name: p.name,
             url: p.url,
@@ -88,7 +143,8 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         throw new Error(data.error || 'Failed to save settings');
       }
 
-      setSuccess('Settings saved successfully!');
+      setSuccess('All settings saved successfully!');
+      setLogoFile(null); // Clear the file after successful save
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -106,8 +162,9 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
     setError('');
 
     try {
-      const response = await fetch(`/api/business/${business.id}`, {
-        method: 'DELETE',
+      // Use POST with _method=DELETE (workaround for proxy blocking DELETE)
+      const response = await fetch(`/api/business/${business.id}?_method=DELETE`, {
+        method: 'POST',
       });
 
       const data = await response.json();
@@ -116,7 +173,8 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         throw new Error(data.error || 'Failed to delete business');
       }
 
-      // Redirect to admin dashboard
+      // Force refresh and redirect to admin dashboard
+      router.refresh();
       router.push('/admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -185,6 +243,104 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         </div>
       </div>
 
+      {/* Logo and Social Media Links */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Branding & Social Links</h2>
+
+        {/* Logo Upload */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Business Logo</label>
+          <div className="flex items-center gap-4">
+            {logoPreview && (
+              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
+                <img
+                  src={logoPreview}
+                  alt="Business logo"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                type="file"
+                id="logo-upload"
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                      setError('Logo file size must be less than 5MB');
+                      return;
+                    }
+                    // Store file and show preview
+                    setLogoFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setLogoPreview(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="hidden"
+              />
+              <label
+                htmlFor="logo-upload"
+                className="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition"
+              >
+                {logoPreview ? 'Change Logo' : 'Choose Logo'}
+              </label>
+              <p className="text-xs text-gray-500 mt-2">
+                JPG or PNG, max 5MB. {logoFile && <span className="text-indigo-600 font-medium">Ready to upload - click "Save All Settings" below</span>}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Social Media Links */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Website URL</label>
+            <input
+              type="url"
+              value={businessInfo.websiteUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, websiteUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://www.example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Facebook URL</label>
+            <input
+              type="url"
+              value={businessInfo.facebookUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, facebookUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://facebook.com/yourpage"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram URL</label>
+            <input
+              type="url"
+              value={businessInfo.instagramUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, instagramUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://instagram.com/yourprofile"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn URL</label>
+            <input
+              type="url"
+              value={businessInfo.linkedinUrl}
+              onChange={(e) => setBusinessInfo({ ...businessInfo, linkedinUrl: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://linkedin.com/company/yourcompany"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Review Link */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Review Link</h2>
@@ -225,6 +381,18 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         <div className="space-y-6">
           {platforms.map((platform, index) => (
             <div key={index} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-medium text-gray-900">Platform {index + 1}</h3>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearPlatform(index)}
+                    className="text-sm text-red-600 hover:text-red-700 hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <div className="grid md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -276,27 +444,35 @@ export default function BusinessSettings({ business }: BusinessSettingsProps) {
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex justify-between items-center mb-2">
             <span className="font-medium text-gray-700">Total Weight:</span>
-            <span className={`font-bold ${totalWeight === 100 ? 'text-green-600' : 'text-red-600'}`}>
+            <span className={`font-bold ${totalWeight === 100 || noPlatformsConfigured ? 'text-green-600' : 'text-red-600'}`}>
               {totalWeight}%
             </span>
           </div>
-          {totalWeight !== 100 && (
+          {!noPlatformsConfigured && totalWeight !== 100 && (
             <p className="text-sm text-red-600">
-              Total weight must equal 100%
+              Total weight must equal 100% to save platforms
+            </p>
+          )}
+          {noPlatformsConfigured && (
+            <p className="text-sm text-gray-600">
+              No platforms configured yet. You can still save business info and branding.
             </p>
           )}
         </div>
+      </div>
 
-        {/* Save Button */}
-        <div className="mt-6">
-          <button
-            onClick={handleSave}
-            disabled={!isValid || isSaving}
-            className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
-          >
-            {isSaving ? 'Saving...' : 'Save Settings'}
-          </button>
-        </div>
+      {/* Unified Save Button for All Settings */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <button
+          onClick={handleSave}
+          disabled={!isValid || isSaving}
+          className="w-full py-4 bg-indigo-600 text-white text-lg font-semibold rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition shadow-lg"
+        >
+          {isSaving ? 'Saving All Settings...' : 'Save All Settings'}
+        </button>
+        <p className="text-sm text-gray-500 text-center mt-3">
+          This will save business information, branding, social links, and review platforms
+        </p>
       </div>
 
       {/* Email Template */}

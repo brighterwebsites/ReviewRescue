@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import sharp from 'sharp';
+import { existsSync } from 'fs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,27 +49,24 @@ export async function POST(request: NextRequest) {
     const ext = file.type === 'image/png' ? 'png' : 'jpg';
     const filename = `${businessSlug}_logo.${ext}`;
 
-    // Resize image to max height 200px maintaining aspect ratio
-    const resizedBuffer = await sharp(buffer)
-      .resize({
-        height: 200,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .toFormat(ext === 'png' ? 'png' : 'jpeg')
-      .toBuffer();
+    // Ensure uploads directory exists
+    const uploadsDir = join(process.cwd(), 'public', 'uploads');
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
 
-    // Save to public/uploads
-    const filepath = join(process.cwd(), 'public', 'uploads', filename);
-    await writeFile(filepath, resizedBuffer);
+    // Save original file to public/uploads
+    const filepath = join(uploadsDir, filename);
+    await writeFile(filepath, buffer);
 
     const logoUrl = `/uploads/${filename}`;
 
     return NextResponse.json({ success: true, logoUrl });
   } catch (error) {
     console.error('Error uploading logo:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: `Upload failed: ${errorMessage}` },
       { status: 500 }
     );
   }

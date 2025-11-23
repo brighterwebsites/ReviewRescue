@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
+// Force dynamic rendering to avoid static generation issues with useSearchParams
+export const dynamic = 'force-dynamic';
+
 export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();

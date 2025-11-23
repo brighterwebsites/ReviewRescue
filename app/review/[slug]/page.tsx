@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { getBusinessBySlug } from '@/lib/db';
+import { getBusinessBySlug, updateBusinessLastVisit } from '@/lib/db';
 import { getNextReviewPlatform } from '@/lib/review-distribution';
 import { SentimentType } from '@/types';
 import SentimentSelector from '@/components/SentimentSelector';
@@ -19,6 +19,9 @@ export default async function ReviewPage({ params, searchParams }: PageProps) {
   if (!business) {
     notFound();
   }
+
+  // Track visit to review page
+  await updateBusinessLastVisit(business.id);
 
   // If sentiment is already selected, handle the redirect or show form
   const sentiment = searchParams.sentiment as SentimentType | undefined;

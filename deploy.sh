@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 # Step 1: Pull latest changes
 echo -e "${YELLOW}Step 1: Pulling latest changes from git...${NC}"
-git pull origin claude/review-redirect-system-01EV3pk7WYf5s8fY86woJnok
+git pull origin main
 echo -e "${GREEN}✓ Git pull complete${NC}"
 echo ""
 

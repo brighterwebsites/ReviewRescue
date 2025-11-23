@@ -11,6 +11,7 @@ datasource db {
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   BUSINESS_OWNER
 }
@@ -22,6 +23,7 @@ model User {
   name          String
   role          UserRole  @default(BUSINESS_OWNER)
   emailVerified DateTime? // Email verification timestamp
+  lastLoginAt   DateTime? // Last login timestamp
   maxBusinesses Int       @default(3) // Max number of businesses (unlimited for admin)
 
   businesses    Business[]
@@ -47,6 +49,7 @@ model Business {
   instagramUrl  String?  // Instagram profile URL
   linkedinUrl   String?  // LinkedIn profile URL
   logoUrl       String?  // Logo file path (businessname_logo.jpg/png)
+  lastVisitAt   DateTime? // Last visit to review page
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

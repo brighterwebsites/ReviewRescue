@@ -233,3 +233,34 @@ export async function resetStatsByBusinessId(businessId: string): Promise<void> 
     where: { businessId },
   });
 }
+
+// Super Admin functions
+export async function getAllUsersWithBusinesses() {
+  const users = await prisma.user.findMany({
+    include: {
+      businesses: {
+        include: {
+          platforms: {
+            orderBy: { order: 'asc' },
+          },
+          _count: {
+            select: {
+              feedbacks: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return users;
+}
+
+export async function updateBusinessLastVisit(businessId: string): Promise<void> {
+  await prisma.business.update({
+    where: { id: businessId },
+    data: { lastVisitAt: new Date() },
+  });
+}
